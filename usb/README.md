@@ -5,6 +5,9 @@ iPad connected with a USB data cable**. Personal Hotspot, Ethernet adapters and
 jailbreaking are not part of this design. The existing Weylus application and
 browser client are reused unchanged.
 
+For the working local setup, daily startup, display settings, and recovery notes,
+see [project know-how](../KNOWHOW.md).
+
 **Status:** the original eight Linux relay integration tests passed locally and in CI.
 Two additional desktop-restart regression tests now pass locally. The
 Swift app compiled successfully on macOS on 2026-09-23. Download the unsigned IPA
@@ -13,6 +16,8 @@ from the **WeylusUSB-unsigned** artifact in the
 The user has since installed and opened the companion on iPadOS 26.0. A direct
 USB connection to the companion succeeded, the Linux relay connected to the
 matching server, and the user reported seeing Weylus controls or desktop video.
+On 2026-09-23 the user also confirmed automatic recovery after Linux Stop → Start
+with the iPad app left open, and reported that the setup works well.
 Pencil pressure/tilt, Wi-Fi-disabled operation and longer stability tests remain
 unverified.
 
@@ -56,7 +61,9 @@ loopback. Weylus access-code authentication remains available.
 4. Sign and install that IPA using a sideloading tool. The unsigned IPA cannot be
    installed directly. No Apple account or signing key is used by the workflow.
 
-For an installation route from Linux, follow the current
+On this setup, the user signed and installed the companion directly using
+iLoader; installing SideStore first was not necessary for that successful test.
+For an alternative installation route from Linux, follow the current
 [SideStore prerequisites](https://docs.sidestore.io/docs/installation/prerequisites)
 and [installation guide](https://docs.sidestore.io/docs/installation/install).
 After SideStore is working, import the companion IPA into it. Enter Apple account
@@ -65,9 +72,9 @@ Free-account installations need regular refreshes (typically every seven days),
 and iPadOS may require Developer Mode. Initial installation and refreshes can need
 internet access even though the Weylus USB session does not.
 
-The app targets iPadOS 17 and newer; iPadOS 26.0 is the intended first hardware
-test. This project has not verified SideStore installation or signing on that
-device. Future builds must pass before attempting installation.
+The app targets iPadOS 17 and newer; the physical-device test used iPadOS 26.0.
+SideStore installation on that device has not been verified. Future builds must
+pass before attempting installation.
 
 ## Run on Linux
 
@@ -167,7 +174,7 @@ concurrent stream isolation, half-closes, cancellation, and reconnection. They d
 **not** prove that iPadOS exposes the app listener through usbmuxd or that WKWebView
 decodes the Weylus video correctly.
 
-Before calling this feature working, record an actual device test:
+For broader validation beyond the successful session above, record:
 
 - iPad model and iPadOS version; Linux distribution, Weylus build and capture backend.
 - Successful macOS build, signing and installation.

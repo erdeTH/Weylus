@@ -403,9 +403,28 @@ are connected via the Internet Protocol and that doesn't necessarily imply WiFi.
 
 Q: What about a Wi-Fi-only iPad connected directly by USB-C?<br>
 A: There is an [experimental USB companion and Linux relay](usb/README.md).
+See the [working setup and everyday-use know-how](KNOWHOW.md) for this project's tested configuration.
 It requires installing an iPad app; Safari alone cannot use this direct USB transport.
-The prototype has passed a macOS build and Linux relay tests, but still needs signing,
-installation and physical-iPad validation before it can be considered working.
+The companion has been installed and tested on a Wi-Fi-only iPad running iPadOS 26.0
+with Ubuntu 22.04.5 (X11), including automatic reconnection after Linux Stop → Start.
+
+To use this branch's USB setup:
+
+1. Build or download the matching Linux server and iPad companion using the
+   [USB build and installation instructions](usb/README.md). Sign and install the
+   companion IPA; iLoader was used successfully on this setup.
+2. Connect the iPad with a USB data cable, unlock it, and accept the computer trust
+   prompt. Open **Weylus USB** on the iPad and keep it in the foreground.
+3. From this repository's folder, run `bash usb/start-usb.sh`. This starts both
+   the Linux server and USB relay; the server binary must be at
+   `target/release/weylus` (or set `WEYLUS_BINARY` to its path).
+4. Select one monitor under **Capture** and disable **Video → Stretch Video** to
+   preserve the display's aspect ratio. Leave the iPad app open during Linux
+   Stop → Start; it reconnects automatically.
+
+Use the server from this branch: the older official v0.11.4 release has a different
+port layout. See the [USB guide](usb/README.md) for prerequisites, troubleshooting,
+and the remaining hardware checks.
 It does not require Personal Hotspot or change the normal Wi-Fi setup.
 
 ---
