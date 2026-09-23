@@ -1,0 +1,31 @@
+name: Experimental iPad USB companion
+
+on:
+  workflow_dispatch:
+  push:
+    paths: ['ios/**', 'usb/**', '.github/workflows/ios-usb.yml']
+  pull_request:
+    paths: ['ios/**', 'usb/**', '.github/workflows/ios-usb.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  relay-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: python3 -m unittest discover -s usb -p 'test_*.py' -v
+  build-ipad:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install project generator
+        run: brew install xcodegen
+      - name: Build without Apple credentials
+        run: bash ios/build-unsigned.sh
+      - uses: actions/upload-artifact@v6
+        with:
+          name: WeylusUSB-unsigned
+          path: ios/.build/WeylusUSB-unsigned.ipa
+          if-no-files-found: error

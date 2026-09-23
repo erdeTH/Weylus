@@ -10,3 +10,6 @@ c_helper/Cargo.lock
 *.js
 *.js.map
 *.tar.gz
+/ios/.build/
+/ios/WeylusUSB.xcodeproj/
+/usb/__pycache__/

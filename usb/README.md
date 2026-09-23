@@ -1,0 +1,128 @@
+# Experimental direct USB connection for iPad
+
+This prototype adds a native iPad companion and a Linux relay for a **Wi-Fi-only
+iPad connected with a USB data cable**. Personal Hotspot, Ethernet adapters and
+jailbreaking are not part of this design. The existing Weylus application and
+browser client are reused unchanged.
+
+**Status:** the Linux relay has local integration tests. The Swift app still needs
+to be compiled on macOS and tested on a physical iPad, including iPadOS 26.0.
+There is no prebuilt or verified installable app included here. Do not interpret
+the presence of the build workflow as a successful device test.
+
+## How the connection works
+
+```text
+Linux Weylus (127.0.0.1:1701)
+    ↕ HTTP and WebSocket bytes
+Python relay → local usbmuxd → USB cable
+    ↕
+iPad companion (loopback port 49151)
+    ↕ local TCP forwarding
+WKWebView → http://127.0.0.1:1701 on the iPad
+```
+
+Linux initiates connections to the companion through Apple's USB multiplexing
+transport. The companion assigns each connection to one local browser connection.
+This reverses the direction of connection establishment without changing Weylus's
+HTTP or WebSocket protocol. Sixteen streams are maintained to accommodate page
+assets, HTTP keep-alive and the video/input WebSocket.
+
+The relay selects **only devices reported as USB**, and pins the selected device's
+identifier until the relay exits. It will not fall back to a paired Wi-Fi device.
+Both iPad listeners bind to loopback; the Linux destination is also fixed to
+loopback. Weylus access-code authentication remains available.
+
+## Build the companion without owning a Mac
+
+1. Put these changes in a GitHub repository you control. The upstream repository
+   cannot build changes that only exist on your Linux computer.
+2. In its Actions tab, run **Experimental iPad USB companion**. It also runs when
+   the companion or relay files change. A macOS runner installs XcodeGen and runs
+   `bash ios/build-unsigned.sh` using Xcode.
+3. After a successful run, download the **WeylusUSB-unsigned** artifact and extract
+   `WeylusUSB-unsigned.ipa` from the artifact ZIP.
+4. Sign and install that IPA using a sideloading tool. The unsigned IPA cannot be
+   installed directly. No Apple account or signing key is used by the workflow.
+
+For an installation route from Linux, follow the current
+[SideStore prerequisites](https://docs.sidestore.io/docs/installation/prerequisites)
+and [installation guide](https://docs.sidestore.io/docs/installation/install).
+After SideStore is working, import the companion IPA into it. Enter Apple account
+credentials only in the signing tool, never in this repository or a chat.
+Free-account installations need regular refreshes (typically every seven days),
+and iPadOS may require Developer Mode. Initial installation and refreshes can need
+internet access even though the Weylus USB session does not.
+
+The app targets iPadOS 17 and newer; iPadOS 26.0 is the intended first hardware
+test. This project has not verified SideStore installation or signing on that
+device. A macOS build failure must be fixed before attempting installation.
+
+## Run on Linux
+
+Install Python 3.10 or newer, `usbmuxd`, and the libimobiledevice command-line tools
+using your distribution's package manager. For Debian/Ubuntu, the package names
+are typically `python3`, `usbmuxd`, and `libimobiledevice-utils`.
+
+1. Connect a **data-capable USB-C cable**, unlock the iPad, and accept **Trust This
+   Computer**. If needed, run `idevicepair pair` on Linux and respond on the iPad.
+2. Start this version of Weylus. To restrict its web listener to this computer:
+
+   ```sh
+   ./target/release/weylus --bind-address 127.0.0.1 --web-port 1701
+   ```
+
+   Use your actual Weylus binary path. If its window has a Start button, start the
+   server there too. Existing Linux capture and `/dev/uinput` setup still applies.
+3. Open **Weylus USB** on the iPad and keep it in the foreground.
+4. From the repository directory, run:
+
+   ```sh
+   python3 usb/bridge.py
+   ```
+
+   If several Apple devices are attached:
+
+   ```sh
+   python3 usb/bridge.py --list
+   python3 usb/bridge.py --udid YOUR_IPAD_IDENTIFIER
+   ```
+
+   If Weylus uses another web port, pass `--port PORT` to the relay. The iPad app
+   continues using its own local port 1701.
+5. The companion should load the normal Weylus page when a relay connection is
+   available. Enter the Weylus access code if configured, select a capture source,
+   then test video and Pencil input. Tap **Reload** if the page needs retrying.
+
+To stop, press Ctrl+C in the relay terminal. Backgrounding the companion closes
+its streams; reopening it starts new listeners and the relay retries. This is a
+foreground prototype, not a background USB display driver.
+
+## Verification and limitations
+
+Run the Linux transport tests:
+
+```sh
+python3 -m unittest discover -s usb -p 'test_*.py' -v
+```
+
+These tests use a simulated usbmuxd and real local sockets. They verify USB-only
+selection, port byte order, transparent HTTP upgrade and binary forwarding,
+concurrent stream isolation, half-closes, cancellation, and reconnection. They do
+**not** prove that iPadOS exposes the app listener through usbmuxd or that WKWebView
+decodes the Weylus video correctly.
+
+Before calling this feature working, record an actual device test:
+
+- iPad model and iPadOS version; Linux distribution, Weylus build and capture backend.
+- Successful macOS build, signing and installation.
+- With iPad Wi-Fi turned off in **Settings**, load the page and stream video.
+- Test Pencil pressure/tilt, touch, keyboard, rotation and the access-code form.
+- Unplug/replug the cable and background/reopen the app; verify reconnection.
+- Run at the intended resolution for at least ten minutes and observe latency,
+  heat, memory use and stability. Performance is not measured yet.
+
+The USB transport design is grounded in
+[libusbmuxd](https://github.com/libimobiledevice/libusbmuxd) and
+[PeerTalk](https://github.com/rsms/peertalk). GitHub documents the remote build hosts
+in [GitHub-hosted runners](https://docs.github.com/en/actions/reference/runners/github-hosted-runners).

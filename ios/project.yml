@@ -1,0 +1,24 @@
+name: WeylusUSB
+options:
+  deploymentTarget:
+    iOS: "17.0"
+targets:
+  WeylusUSB:
+    type: application
+    platform: iOS
+    sources: [WeylusUSB]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.weylus.usb
+        PRODUCT_NAME: WeylusUSB
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "2"
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Info.plist
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+schemes:
+  WeylusUSB:
+    build:
+      targets:
+        WeylusUSB: all
