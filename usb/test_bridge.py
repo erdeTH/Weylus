@@ -245,6 +245,87 @@ class RelayTests(unittest.IsolatedAsyncioTestCase):
                 await task
         self.assertEqual(attempts, 2)
 
+    async def test_idle_slot_detects_desktop_shutdown(self):
+        ready = asyncio.Event()
+        close_backend = asyncio.Event()
+        device_closed = asyncio.Event()
+
+        async def host(reader, writer):
+            await close_backend.wait()
+
+        async def device(reader, writer):
+            await reader.readexactly(len(bridge.HELLO))
+            ready.set()
+            # No START: this slot is reserved, but not used by the browser yet.
+            self.assertEqual(await reader.read(), b"")
+            device_closed.set()
+
+        self.device_handler = device
+        port = await self.host(host)
+        slot = asyncio.create_task(bridge.serve_slot(self.args(port)))
+        try:
+            await asyncio.wait_for(ready.wait(), 2)
+            close_backend.set()
+            with self.assertRaises(bridge.BackendDisconnected):
+                await asyncio.wait_for(slot, 2)
+            await asyncio.wait_for(device_closed.wait(), 2)
+        finally:
+            slot.cancel()
+            await asyncio.gather(slot, return_exceptions=True)
+
+    async def test_fast_desktop_reset_closes_whole_pool_before_reconnecting(self):
+        stop = asyncio.Event()
+        old_ready = asyncio.Event()
+        recovered = asyncio.Event()
+        old_closed = set()
+        hosts = []
+        next_id = iter(range(100))
+        handshakes = set()
+
+        async def host(reader, writer):
+            hosts.append(writer)
+            while data := await reader.read(4096):
+                writer.write(data)
+                await writer.drain()
+
+        async def device(reader, writer):
+            stream_id = next(next_id)
+            await reader.readexactly(len(bridge.HELLO))
+            if stream_id < 2:
+                if stream_id == 0:
+                    # One busy stream and one unused slot when Linux resets.
+                    writer.write(bridge.START + b"active")
+                    await writer.drain()
+                    self.assertEqual(await reader.readexactly(6), b"active")
+                handshakes.add(stream_id)
+                if {0, 1} <= handshakes:
+                    old_ready.set()
+                self.assertEqual(await reader.read(), b"")
+                old_closed.add(stream_id)
+                # Mimic a client that leaves its send half open after EOF.
+                await stop.wait()
+            else:
+                self.assertEqual(old_closed, {0, 1})
+                writer.write(bridge.START + b"new session")
+                await writer.drain()
+                self.assertEqual(await reader.readexactly(11), b"new session")
+                recovered.set()
+                await stop.wait()
+
+        self.device_handler = device
+        port = await self.host(host)
+        task = asyncio.create_task(bridge.supervise(self.args(port), stop, slots=2))
+        try:
+            await asyncio.wait_for(old_ready.wait(), 2)
+            # Keep the listener open to model an immediately restarted server.
+            # New accepts can succeed before the old client handles closures.
+            for writer in list(hosts):
+                writer.close()
+            await asyncio.wait_for(recovered.wait(), 4)
+        finally:
+            stop.set()
+            await asyncio.wait_for(task, 6)
+
 
 if __name__ == "__main__":
     unittest.main()

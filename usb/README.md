@@ -5,7 +5,8 @@ iPad connected with a USB data cable**. Personal Hotspot, Ethernet adapters and
 jailbreaking are not part of this design. The existing Weylus application and
 browser client are reused unchanged.
 
-**Status:** all eight Linux relay integration tests passed locally and in CI. The
+**Status:** the original eight Linux relay integration tests passed locally and in CI.
+Two additional desktop-restart regression tests now pass locally. The
 Swift app compiled successfully on macOS on 2026-09-23. Download the unsigned IPA
 from the **WeylusUSB-unsigned** artifact in the
 [successful build](https://github.com/erdeTH/Weylus/actions/runs/35855512452).
@@ -140,6 +141,13 @@ are typically `python3`, `usbmuxd`, and `libimobiledevice-utils`.
 To stop, press Ctrl+C in the relay terminal. Backgrounding the companion closes
 its streams; reopening it starts new listeners and the relay retries. This is a
 foreground prototype, not a background USB display driver.
+
+The relay watches reserved desktop connections even before a browser uses them.
+If the desktop server closes one, the relay resets the entire USB pool before
+reconnecting. This gives the companion a disconnected-to-connected transition
+so it reloads after a server reset. Restart the Linux launcher after updating the
+relay; no iPad reinstall is needed for this fix. The launcher also prevents
+multiple simultaneous launches from the same checkout.
 
 ## Verification and limitations
 

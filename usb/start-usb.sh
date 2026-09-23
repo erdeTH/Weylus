@@ -7,6 +7,12 @@ if [[ ! -x "$weylus_binary" ]]; then
     echo "Build/download the Linux server first, or set WEYLUS_BINARY to its path." >&2
     exit 1
 fi
+mkdir -p "$project_dir/target"
+exec 9>"$project_dir/target/usb-launch.lock"
+if ! flock -n 9; then
+    echo "Weylus USB is already running. Use its existing window." >&2
+    exit 0
+fi
 python3 "$project_dir/usb/bridge.py" &
 relay_pid=$!
 trap 'kill "$relay_pid" 2>/dev/null || true; wait "$relay_pid" 2>/dev/null || true' EXIT

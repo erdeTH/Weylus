@@ -25,6 +25,10 @@ class BridgeError(Exception):
     pass
 
 
+class BackendDisconnected(BridgeError):
+    pass
+
+
 async def close_writer(writer):
     if writer is not None:
         writer.close()
@@ -108,6 +112,30 @@ async def relay(device_reader, device_writer, host_reader, host_writer):
         await asyncio.gather(*pumps, return_exceptions=True)
 
 
+async def wait_for_start(device_reader, host_reader):
+    """Notice a dead desktop server even while a USB slot is still idle."""
+    start = asyncio.create_task(device_reader.readexactly(len(START)))
+    backend = asyncio.create_task(host_reader.read(1))
+    try:
+        done, _ = await asyncio.wait([start, backend], return_when=asyncio.FIRST_COMPLETED)
+        if backend in done:
+            # An HTTP server cannot send a response before the browser has sent
+            # its request. EOF here means this reserved connection is stale.
+            try:
+                data = backend.result()
+            except OSError as error:
+                raise BackendDisconnected("Desktop server connection was lost") from error
+            if data:
+                raise BackendDisconnected("Unexpected data on an idle desktop connection")
+            raise BackendDisconnected("Desktop server closed an idle connection")
+        if start.result() != START:
+            raise BridgeError("Companion protocol mismatch; update both components.")
+    finally:
+        for task in (start, backend):
+            task.cancel()
+        await asyncio.gather(start, backend, return_exceptions=True)
+
+
 async def serve_slot(args):
     device_writer = host_writer = None
     try:
@@ -118,8 +146,7 @@ async def serve_slot(args):
             asyncio.open_connection("127.0.0.1", args.port), 5)
         device_writer.write(HELLO)
         await device_writer.drain()
-        if await device_reader.readexactly(len(START)) != START:
-            raise BridgeError("Companion protocol mismatch; update both components.")
+        await wait_for_start(device_reader, host_reader)
         LOG.debug("Relaying a browser connection")
         await relay(device_reader, device_writer, host_reader, host_writer)
     finally:
@@ -127,19 +154,54 @@ async def serve_slot(args):
         await close_writer(host_writer)
 
 
-async def worker(args, index):
+async def worker(args, index, restart=None):
     previous_error = None
     while True:
         try:
             await serve_slot(args)
             previous_error = None
         except (OSError, asyncio.IncompleteReadError, asyncio.TimeoutError, BridgeError) as error:
+            if isinstance(error, BackendDisconnected) and restart is not None:
+                restart.set()
+                return
             message = str(error) or type(error).__name__
             if index == 0 and message != previous_error:
                 LOG.warning("%s; retrying. Weylus must be listening on 127.0.0.1:%d.",
                             message, args.port)
                 previous_error = message
             await asyncio.sleep(1)
+
+
+async def supervise(args, stop, slots=16):
+    """Reset the entire pool before reconnecting after a desktop restart.
+
+    The companion reloads on a disconnected-to-connected transition. Replacing
+    slots individually could leave it permanently 'connected' to a dead page.
+    """
+    stop_task = asyncio.create_task(stop.wait())
+    try:
+        while not stop.is_set():
+            restart = asyncio.Event()
+            restart_task = asyncio.create_task(restart.wait())
+            tasks = [asyncio.create_task(worker(args, index, restart)) for index in range(slots)]
+            try:
+                done, _ = await asyncio.wait([*tasks, restart_task, stop_task],
+                                             return_when=asyncio.FIRST_COMPLETED)
+                for task in done:
+                    task.result()
+            finally:
+                for task in [*tasks, restart_task]:
+                    task.cancel()
+                await asyncio.gather(*tasks, restart_task, return_exceptions=True)
+            if not stop.is_set():
+                LOG.info("Desktop connection reset; refreshing all USB sessions.")
+                # Allow the companion to process all closures before announcing
+                # readiness again, including when the server restarts quickly.
+                with contextlib.suppress(asyncio.TimeoutError):
+                    await asyncio.wait_for(stop.wait(), 1)
+    finally:
+        stop_task.cancel()
+        await asyncio.gather(stop_task, return_exceptions=True)
 
 
 async def run(args):
@@ -159,16 +221,9 @@ async def run(args):
     loop = asyncio.get_running_loop()
     for signum in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(signum, stop.set)
-    tasks = [asyncio.create_task(worker(args, index)) for index in range(16)]
-    stop_task = asyncio.create_task(stop.wait())
     try:
-        done, _ = await asyncio.wait([*tasks, stop_task], return_when=asyncio.FIRST_COMPLETED)
-        for task in done:
-            task.result()
+        await supervise(args, stop)
     finally:
-        for task in [*tasks, stop_task]:
-            task.cancel()
-        await asyncio.gather(*tasks, stop_task, return_exceptions=True)
         for signum in (signal.SIGINT, signal.SIGTERM):
             loop.remove_signal_handler(signum)
 
