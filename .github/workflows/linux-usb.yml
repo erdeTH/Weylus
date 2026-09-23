@@ -1,0 +1,52 @@
+name: Linux server for iPad USB
+
+on:
+  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/linux-usb.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential autoconf automake libtool-bin nasm clang \
+            pkg-config libx11-dev libxext-dev libxft-dev libxinerama-dev libxcursor-dev \
+            libxrender-dev libxfixes-dev libxtst-dev libxrandr-dev libxcomposite-dev \
+            libxi-dev libxv-dev libdrm-dev libpango1.0-dev libgstreamer1.0-dev \
+            libgstreamer-plugins-base1.0-dev libdbus-1-dev libxcb-dri3-dev \
+            libx11-xcb-dev libgl1-mesa-dev libglu1-mesa-dev libwayland-dev \
+            libxkbcommon-dev libegl1-mesa-dev libdecor-0-dev
+          python3 -m pip install --user cmake==4.1.1
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          npm install --prefix "$RUNNER_TEMP/weylus-tools" typescript@5.6.3
+          echo "$RUNNER_TEMP/weylus-tools/node_modules/.bin" >> "$GITHUB_PATH"
+          rustup update stable --no-self-update
+          rustup default stable
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: linux-usb-jammy-${{ hashFiles('Cargo.lock', 'deps/hashes.sh') }}
+      - name: Build compatible Linux server
+        run: cargo build --locked --release --features va-static
+      - name: Check and package
+        run: |
+          target/release/weylus --help
+          mkdir -p packages
+          tar -czf packages/weylus-linux-usb.tar.gz -C target/release weylus
+          sha256sum packages/weylus-linux-usb.tar.gz > packages/SHA256SUMS
+      - uses: actions/upload-artifact@v6
+        with:
+          name: weylus-linux-usb
+          path: packages/*
+          if-no-files-found: error
