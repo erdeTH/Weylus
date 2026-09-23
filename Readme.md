@@ -404,8 +404,9 @@ are connected via the Internet Protocol and that doesn't necessarily imply WiFi.
 Q: What about a Wi-Fi-only iPad connected directly by USB-C?<br>
 A: There is an [experimental USB companion and Linux relay](usb/README.md).
 It requires installing an iPad app; Safari alone cannot use this direct USB transport.
-The prototype still needs a macOS build and physical-iPad validation before it can be
-considered working. It does not require Personal Hotspot or change the normal Wi-Fi setup.
+The prototype has passed a macOS build and Linux relay tests, but still needs signing,
+installation and physical-iPad validation before it can be considered working.
+It does not require Personal Hotspot or change the normal Wi-Fi setup.
 
 ---
 

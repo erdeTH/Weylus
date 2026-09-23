@@ -5,10 +5,17 @@ iPad connected with a USB data cable**. Personal Hotspot, Ethernet adapters and
 jailbreaking are not part of this design. The existing Weylus application and
 browser client are reused unchanged.
 
-**Status:** the Linux relay has local integration tests. The Swift app still needs
-to be compiled on macOS and tested on a physical iPad, including iPadOS 26.0.
-There is no prebuilt or verified installable app included here. Do not interpret
-the presence of the build workflow as a successful device test.
+**Status:** all eight Linux relay integration tests passed locally and in CI. The
+Swift app compiled successfully on macOS on 2026-09-23. Download the unsigned IPA
+from the **WeylusUSB-unsigned** artifact in the
+[successful build](https://github.com/erdeTH/Weylus/actions/runs/35855512452).
+Signing, installation and physical-iPad testing (including iPadOS 26.0) remain
+unverified. A successful build is not a successful device test.
+
+Build provenance: source commit `5fe12ead2eb1faf4d5e9f3903afab59e113e2469`, Xcode
+26.6, iPhoneOS SDK 26.5, arm64, minimum iPadOS 17.0, bundle `org.weylus.usb`.
+The downloaded IPA passed ZIP integrity and executable-presence checks.
+IPA SHA-256: `7b360613a20b6149f4776597385066a3e0888c6631758bf99749a8014e41cb6d`.
 
 ## How the connection works
 
@@ -56,7 +63,7 @@ internet access even though the Weylus USB session does not.
 
 The app targets iPadOS 17 and newer; iPadOS 26.0 is the intended first hardware
 test. This project has not verified SideStore installation or signing on that
-device. A macOS build failure must be fixed before attempting installation.
+device. Future builds must pass before attempting installation.
 
 ## Run on Linux
 
