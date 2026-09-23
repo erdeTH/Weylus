@@ -149,6 +149,10 @@ so it reloads after a server reset. Restart the Linux launcher after updating th
 relay; no iPad reinstall is needed for this fix. The launcher also prevents
 multiple simultaneous launches from the same checkout.
 
+On 2026-09-23, after deploying this fix, the user confirmed that Linux **Stop →
+Start** reconnects automatically while leaving the iPad app open. Reopening the
+Linux launcher was also checked: it kept exactly one server and one relay.
+
 ## Verification and limitations
 
 Run the Linux transport tests:
