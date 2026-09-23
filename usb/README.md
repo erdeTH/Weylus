@@ -9,8 +9,11 @@ browser client are reused unchanged.
 Swift app compiled successfully on macOS on 2026-09-23. Download the unsigned IPA
 from the **WeylusUSB-unsigned** artifact in the
 [successful build](https://github.com/erdeTH/Weylus/actions/runs/35855512452).
-Signing, installation and physical-iPad testing (including iPadOS 26.0) remain
-unverified. A successful build is not a successful device test.
+The user has since installed and opened the companion on iPadOS 26.0. A direct
+USB connection to the companion succeeded, the Linux relay connected to the
+matching server, and the user reported seeing Weylus controls or desktop video.
+Pencil pressure/tilt, Wi-Fi-disabled operation and longer stability tests remain
+unverified.
 
 Build provenance: source commit `5fe12ead2eb1faf4d5e9f3903afab59e113e2469`, Xcode
 26.6, iPhoneOS SDK 26.5, arm64, minimum iPadOS 17.0, bundle `org.weylus.usb`.
@@ -66,6 +69,39 @@ test. This project has not verified SideStore installation or signing on that
 device. Future builds must pass before attempting installation.
 
 ## Run on Linux
+
+Use the server built from this branch. The official v0.11.4 release uses separate
+web and WebSocket ports and is not compatible with this single-port companion.
+The **Linux server for iPad USB** workflow builds on Ubuntu 22.04 and produces a
+`weylus-linux-usb` artifact containing `weylus-linux-usb.tar.gz` and `SHA256SUMS`.
+The first successful matching Linux build is
+[run 35857686042](https://github.com/erdeTH/Weylus/actions/runs/35857686042), source
+commit `7992e6ee7348f26fe7affc8fb846c0770a82e3fd`. It was downloaded, checksum-verified,
+and launched on Ubuntu 22.04.5 x86_64 with X11. No missing runtime libraries were
+reported; `/`, `/lib.js` and `/style.css` returned HTTP 200, and the H.264 encoder
+started for the connected client. Executable SHA-256:
+`85ed6867fef6c90cfd6d399f22b010b845a0fc91027bdda23b3777a5e9827811`.
+
+The checksum file records the archive as `packages/weylus-linux-usb.tar.gz`.
+Place the two artifact files in a `packages` directory and run
+`sha256sum -c packages/SHA256SUMS` from its parent, then extract the archive into
+the repository's `target/release/`.
+
+With that binary installed, you can start the server and relay together from the
+repository directory:
+
+```sh
+bash usb/start-usb.sh
+```
+
+Keep the iPad companion open and connected before starting. Closing the Linux
+Weylus window also stops the relay started by this launcher. The manual steps
+below are useful when troubleshooting or using an already-running server.
+
+If the desktop looks stretched, open the iPad's Weylus settings and turn off
+**Video → Stretch Video**. This preserves the source aspect ratio and can leave
+empty space around the image. Selecting one monitor or application under
+**Capture** avoids displaying a very wide combined desktop.
 
 Install Python 3.10 or newer, `usbmuxd`, and the libimobiledevice command-line tools
 using your distribution's package manager. For Debian/Ubuntu, the package names
